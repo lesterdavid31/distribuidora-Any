@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RoleName {
+  ADMIN
+  COMPRADOR
+  VENDEDOR
+}
+
+enum ListStatus {
+  PENDIENTE
+  EN_COMPRA
+  COMPLETADA
+}
+
+model User {
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  passwordHash  String
+  active        Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  roles         UserRole[]
+  createdLists  PurchaseList[] @relation("ListCreator")
+  assignedLists PurchaseList[] @relation("ListBuyer")
+  shares        ListShare[]
+}
+
+model Role {
+  id    String     @id @default(cuid())
+  name  RoleName   @unique
+  users UserRole[]
+}
+
+model UserRole {
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  roleId String
+
+  @@id([userId, roleId])
+}
+
+model Category {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  icon     String    @default("🧺")
+  order    Int       @default(0)
+  products Product[]
+}
+
+model Product {
+  id         String     @id @default(cuid())
+  name       String
+  icon       String     @default("🧺")
+  visible    Boolean    @default(true)
+  order      Int        @default(0)
+  category   Category   @relation(fields: [categoryId], references: [id])
+  categoryId String
+  items      ListItem[]
+
+  @@unique([name, categoryId])
+}
+
+model PurchaseList {
+  id           String       @id @default(cuid())
+  title        String
+  status       ListStatus   @default(PENDIENTE)
+  purchaseDate DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  creator      User         @relation("ListCreator", fields: [creatorId], references: [id])
+  creatorId    String
+  buyer        User?        @relation("ListBuyer", fields: [buyerId], references: [id])
+  buyerId      String?
+  items        ListItem[]
+  shares       ListShare[]
+}
+
+model ListItem {
+  id            String       @id @default(cuid())
+  list          PurchaseList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  listId        String
+  product       Product      @relation(fields: [productId], references: [id])
+  productId     String
+  quantity      Decimal?     @db.Decimal(10, 2)
+  unit          String?
+  checked       Boolean      @default(false)
+  purchasePrice Decimal?     @db.Decimal(10, 2)
+  salePrice     Decimal?     @db.Decimal(10, 2)
+
+  @@unique([listId, productId])
+}
+
+model ListShare {
+  id           String       @id @default(cuid())
+  list         PurchaseList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  listId       String
+  sharedWith   User         @relation(fields: [sharedWithId], references: [id], onDelete: Cascade)
+  sharedWithId String
+  createdAt    DateTime     @default(now())
+
+  @@unique([listId, sharedWithId])
+}
